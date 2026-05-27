@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16
+    container_name: mynbhbackend-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ferenc_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ferenc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ferenc_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ferenc} -d ${POSTGRES_DB:-ferenc_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mynbhbackend-web
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-127.0.0.1,localhost}
+      CORS_ALLOW_ALL_ORIGINS: ${CORS_ALLOW_ALL_ORIGINS:-True}
+      USE_POSTGRES: ${USE_POSTGRES:-True}
+      POSTGRES_DB: ${POSTGRES_DB:-ferenc_db}
+      POSTGRES_USER: ${POSTGRES_USER:-ferenc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ferenc_password}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+    ports:
+      - "8000:8000"
+    command: >-
+      sh -c "python manage.py migrate &&
+             gunicorn --bind 0.0.0.0:8000 --workers 3 backend_config.wsgi:application"
+
+volumes:
+  postgres_data:
